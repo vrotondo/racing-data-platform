@@ -74,8 +74,16 @@ async def health_check():
 
 
 # Import and include routers
-from api import race
-app.include_router(race.router, prefix=f"{settings.API_V1_PREFIX}/race", tags=["race"])
+try:
+    from api import race
+    app.include_router(race.router, prefix=f"{settings.API_V1_PREFIX}/race", tags=["race"])
+except ImportError:
+    # If running directly, try absolute imports
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+    from api import race
+    app.include_router(race.router, prefix=f"{settings.API_V1_PREFIX}/race", tags=["race"])
 
 
 if __name__ == "__main__":

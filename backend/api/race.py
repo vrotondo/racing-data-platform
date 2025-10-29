@@ -5,7 +5,11 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, Dict, List
 import logging
 
-from ..core import data_loader, pit_optimizer, tire_model
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from core import data_loader, pit_optimizer, tire_model
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
