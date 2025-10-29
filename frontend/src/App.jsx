@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Box, CircularProgress } from '@mui/material';
+import { Container, Typography, Box, CircularProgress, Paper } from '@mui/material';
 import { fetchTracks } from './services/api';
+import LapTimeChart from './components/LapTimeChart';
+import TrackSelector from './components/TrackSelector';
 import './App.css';
 
 function App() {
     const [tracks, setTracks] = useState([]);
+    const [selectedTrack, setSelectedTrack] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -17,6 +20,12 @@ function App() {
             setLoading(true);
             const data = await fetchTracks();
             setTracks(data.tracks || []);
+
+            // Auto-select first track if available
+            if (data.tracks && data.tracks.length > 0) {
+                setSelectedTrack(data.tracks[0]);
+            }
+
             setError(null);
         } catch (err) {
             setError('Failed to load tracks. Make sure the backend is running on http://localhost:8000');
@@ -30,45 +39,50 @@ function App() {
         <div className="App">
             <Container maxWidth="lg">
                 <Box sx={{ my: 4 }}>
-                    <Typography variant="h2" component="h1" gutterBottom>
+                    <Typography variant="h2" component="h1" gutterBottom sx={{ color: 'white' }}>
                         🏁 Racing Data Platform
                     </Typography>
 
-                    <Typography variant="h5" component="h2" gutterBottom color="text.secondary">
+                    <Typography variant="h5" component="h2" gutterBottom sx={{ color: 'rgba(255,255,255,0.8)', mb: 4 }}>
                         Real-time Racing Analytics & Strategy
                     </Typography>
 
-                    <Box sx={{ mt: 4 }}>
-                        {loading && (
-                            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                                <CircularProgress />
-                            </Box>
-                        )}
+                    {loading && (
+                        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+                            <CircularProgress sx={{ color: 'white' }} />
+                        </Box>
+                    )}
 
-                        {error && (
-                            <Box sx={{ p: 3, bgcolor: 'error.light', color: 'error.contrastText', borderRadius: 2 }}>
-                                <Typography variant="h6">⚠️ Error</Typography>
-                                <Typography>{error}</Typography>
-                            </Box>
-                        )}
+                    {error && (
+                        <Paper sx={{ p: 3, bgcolor: 'error.light', color: 'error.contrastText', mb: 3 }}>
+                            <Typography variant="h6">⚠️ Error</Typography>
+                            <Typography>{error}</Typography>
+                        </Paper>
+                    )}
 
-                        {!loading && !error && (
-                            <Box>
-                                <Typography variant="h6" gutterBottom>
-                                    Available Tracks: {tracks.length}
-                                </Typography>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
-                                    {tracks.map((track) => (
-                                        <Box key={track} sx={{ p: 2, bgcolor: 'primary.light', color: 'primary.contrastText', borderRadius: 2, minWidth: 200 }}>
-                                            <Typography variant="body1">
-                                                🏎️ {track.replace(/-/g, ' ').toUpperCase()}
-                                            </Typography>
-                                        </Box>
-                                    ))}
-                                </Box>
-                            </Box>
-                        )}
-                    </Box>
+                    {!loading && !error && tracks.length > 0 && (
+                        <Box>
+                            <TrackSelector
+                                tracks={tracks}
+                                selectedTrack={selectedTrack}
+                                onTrackChange={setSelectedTrack}
+                            />
+
+                            <LapTimeChart
+                                raceId="R1"
+                                track={selectedTrack || null}
+                            />
+                        </Box>
+                    )}
+
+                    {!loading && !error && tracks.length === 0 && (
+                        <Paper sx={{ p: 3, bgcolor: 'warning.light' }}>
+                            <Typography variant="h6">📂 No tracks found</Typography>
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                                Add your track data folders to: <code>data/raw/</code>
+                            </Typography>
+                        </Paper>
+                    )}
                 </Box>
             </Container>
         </div>
