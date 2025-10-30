@@ -5,6 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import sys
+from pathlib import Path
+
+# Add current directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
 
 from config import settings
 
@@ -23,15 +28,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Data directory: {settings.DATA_DIR}")
     
-    # TODO: Initialize database
-    # TODO: Load ML models
-    # TODO: Start background tasks
-    
     yield
     
     # Shutdown
     logger.info("Shutting down application")
-    # TODO: Cleanup resources
 
 
 # Create FastAPI app
@@ -68,22 +68,14 @@ async def health_check():
     return {
         "status": "healthy",
         "data_dir_exists": settings.DATA_DIR.exists(),
-        "models_loaded": False,  # TODO: Check if models are loaded
-        "cache_connected": False,  # TODO: Check Redis connection
     }
 
 
 # Import and include routers
-try:
-    from api import race
-    app.include_router(race.router, prefix=f"{settings.API_V1_PREFIX}/race", tags=["race"])
-except ImportError:
-    # If running directly, try absolute imports
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent))
-    from api import race
-    app.include_router(race.router, prefix=f"{settings.API_V1_PREFIX}/race", tags=["race"])
+logger.info("Loading API routes...")
+from api import race
+app.include_router(race.router, prefix=f"{settings.API_V1_PREFIX}/race", tags=["race"])
+logger.info("API routes loaded successfully")
 
 
 if __name__ == "__main__":

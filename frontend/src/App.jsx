@@ -69,7 +69,7 @@ function App() {
                             />
 
                             <LapTimeChart
-                                raceId="R1"
+                                raceId="01"
                                 track={selectedTrack || null}
                             />
                         </Box>

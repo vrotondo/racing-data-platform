@@ -140,19 +140,39 @@ class RacingDataLoader:
         """
         if track:
             search_path = settings.RAW_DATA_DIR / track
-            file_pattern = f"*lap_time*{race_id}*.csv"
         else:
             search_path = settings.RAW_DATA_DIR
-            file_pattern = f"**/*lap_time*{race_id}*.csv"
         
-        files = list(search_path.glob(file_pattern))
+        # Get ALL CSV files in the directory
+        all_files = list(search_path.glob("*.csv"))
         
-        if not files:
-            logger.warning(f"No lap time files found matching {file_pattern}")
+        if not all_files:
+            logger.warning(f"No CSV files found in {search_path}")
             return pd.DataFrame()
         
-        logger.info(f"Found lap time file: {files[0]}")
-        df = self.load_csv(files[0])
+        # Filter for lap time files
+        lap_time_files = []
+        for file in all_files:
+            filename_lower = file.name.lower()
+            # Check if it contains lap time/lap_time/laptimes AND the race_id
+            if ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower):
+                if race_id.lower() in filename_lower or f"_{race_id}_" in file.name:
+                    lap_time_files.append(file)
+        
+        # If no files match with race_id, just get first lap time file
+        if not lap_time_files:
+            for file in all_files:
+                filename_lower = file.name.lower()
+                if ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower):
+                    lap_time_files.append(file)
+                    break
+        
+        if not lap_time_files:
+            logger.warning(f"No lap time files found in {search_path}")
+            return pd.DataFrame()
+        
+        logger.info(f"Found lap time file: {lap_time_files[0]}")
+        df = self.load_csv(lap_time_files[0])
         
         # Ensure lap time is numeric
         if 'lap_time' in df.columns:
