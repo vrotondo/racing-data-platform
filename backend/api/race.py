@@ -17,15 +17,10 @@ router = APIRouter()
 
 @router.get("/tracks")
 async def get_available_tracks() -> Dict:
-    """
-    Get list of available tracks/venues.
-    """
+    """Get list of available tracks/venues."""
     try:
         tracks = data_loader.get_available_tracks()
-        return {
-            "tracks": tracks,
-            "count": len(tracks)
-        }
+        return {"tracks": tracks, "count": len(tracks)}
     except Exception as e:
         logger.error(f"Error getting tracks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -36,11 +31,7 @@ async def get_race_summary(
     race_id: str = Query("R1", description="Race identifier"),
     track: Optional[str] = Query(None, description="Track/venue name")
 ) -> Dict:
-    """
-    Get summary of race data.
-    
-    Returns information about available datasets and basic statistics.
-    """
+    """Get summary of race data."""
     try:
         summary = data_loader.get_race_summary(race_id, track)
         return summary
@@ -54,9 +45,7 @@ async def get_race_results(
     race_id: Optional[str] = Query(None, description="Race identifier"),
     track: Optional[str] = Query(None, description="Track/venue name")
 ) -> Dict:
-    """
-    Get race results and final standings.
-    """
+    """Get race results and final standings."""
     try:
         results_df = data_loader.load_race_results(race_id, track)
         
@@ -82,16 +71,13 @@ async def get_lap_times(
     track: Optional[str] = Query(None, description="Track/venue name"),
     driver_id: Optional[str] = Query(None, description="Filter by driver ID")
 ) -> Dict:
-    """
-    Get lap time data for the race.
-    """
+    """Get lap time data for the race."""
     try:
         lap_times_df = data_loader.load_lap_times(race_id, track)
         
         if lap_times_df.empty:
             raise HTTPException(status_code=404, detail="No lap time data found")
         
-        # Filter by driver if specified
         if driver_id:
             lap_times_df = lap_times_df[lap_times_df['driver_id'] == driver_id]
         
@@ -114,9 +100,7 @@ async def get_best_laps(
     race_id: str = Query("R1", description="Race identifier"),
     track: Optional[str] = Query(None, description="Track/venue name")
 ) -> Dict:
-    """
-    Get best lap times by driver.
-    """
+    """Get best lap times by driver."""
     try:
         best_laps_df = data_loader.load_best_laps(race_id, track)
         
@@ -140,9 +124,7 @@ async def get_weather_data(
     race_id: str = Query("R1", description="Race identifier"),
     track: Optional[str] = Query(None, description="Track/venue name")
 ) -> Dict:
-    """
-    Get weather and track condition data.
-    """
+    """Get weather and track condition data."""
     try:
         weather_df = data_loader.load_weather(race_id, track)
         
@@ -167,11 +149,8 @@ async def get_driver_performance(
     race_id: str = Query("R1", description="Race identifier"),
     track: Optional[str] = Query(None, description="Track/venue name")
 ) -> Dict:
-    """
-    Get detailed performance analysis for a specific driver.
-    """
+    """Get detailed performance analysis for a specific driver."""
     try:
-        # Load driver's lap times
         lap_times_df = data_loader.load_lap_times(race_id, track)
         
         if lap_times_df.empty:
@@ -182,7 +161,6 @@ async def get_driver_performance(
         if driver_laps.empty:
             raise HTTPException(status_code=404, detail=f"No data for driver {driver_id}")
         
-        # Calculate statistics
         avg_lap_time = driver_laps['lap_time'].mean()
         best_lap = driver_laps['lap_time'].min()
         consistency = driver_laps['lap_time'].std()
@@ -204,28 +182,24 @@ async def get_driver_performance(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==========================================
-# PIT STRATEGY ENDPOINTS
-# ==========================================
+# ==============================================
+# NEW: PIT STRATEGY ENDPOINTS
+# ==============================================
 
 @router.get("/strategy/tire-status")
 async def get_tire_status(
-    race_id: str = Query("R1", description="Race identifier"),
-    track: Optional[str] = Query(None, description="Track/venue name"),
-    driver_id: Optional[str] = Query(None, description="Driver ID"),
-    compound: str = Query("medium", description="Tire compound (soft/medium/hard)"),
-    current_stint_laps: int = Query(10, description="Laps on current tires"),
-    track_temp: Optional[float] = Query(None, description="Track temperature (°C)")
+    race_id: str = Query("R1"),
+    track: Optional[str] = Query(None),
+    driver_id: Optional[str] = Query(None),
+    compound: str = Query("medium"),
+    current_stint_laps: int = Query(10),
+    track_temp: Optional[float] = Query(None)
 ) -> Dict:
-    """
-    Get tire degradation analysis and predictions.
-    """
+    """Get tire degradation analysis and predictions."""
     try:
-        # Load lap times for degradation analysis
         lap_times_df = data_loader.load_lap_times(race_id, track)
         
         if lap_times_df.empty:
-            # Return basic prediction without historical data
             prediction = tire_model.TirePrediction(
                 compound=compound,
                 current_lap=current_stint_laps,
@@ -236,11 +210,9 @@ async def get_tire_status(
                 confidence=0.6
             )
         else:
-            # Filter to specific driver if provided
             if driver_id:
                 lap_times_df = lap_times_df[lap_times_df['driver_id'] == driver_id]
             
-            # Get tire prediction with historical data
             prediction = tire_model.predict_tire_performance(
                 compound=compound,
                 current_stint_laps=current_stint_laps,
@@ -265,32 +237,27 @@ async def get_tire_status(
 
 @router.get("/strategy/pit-recommendation")
 async def get_pit_recommendation(
-    race_id: str = Query("R1", description="Race identifier"),
-    track: Optional[str] = Query(None, description="Track/venue name"),
-    current_lap: int = Query(15, description="Current lap number"),
-    total_laps: int = Query(50, description="Total race laps"),
-    current_position: int = Query(5, description="Current position"),
-    fuel_remaining: float = Query(45.0, description="Fuel remaining (liters)"),
-    tire_compound: str = Query("medium", description="Current tire compound"),
-    tire_stint_laps: int = Query(15, description="Laps on current tires"),
-    gap_ahead: float = Query(2.5, description="Gap to car ahead (seconds)"),
-    gap_behind: float = Query(3.2, description="Gap to car behind (seconds)"),
-    is_caution: bool = Query(False, description="Is there a caution period?")
+    race_id: str = Query("R1"),
+    track: Optional[str] = Query(None),
+    current_lap: int = Query(15),
+    total_laps: int = Query(50),
+    current_position: int = Query(5),
+    fuel_remaining: float = Query(45.0),
+    tire_compound: str = Query("medium"),
+    tire_stint_laps: int = Query(15),
+    gap_ahead: float = Query(2.5),
+    gap_behind: float = Query(3.2),
+    is_caution: bool = Query(False)
 ) -> Dict:
-    """
-    Get pit stop strategy recommendation.
-    """
+    """Get pit stop strategy recommendation."""
     try:
-        # Load lap times for fuel consumption calculation
         lap_times_df = data_loader.load_lap_times(race_id, track)
         
-        # Calculate fuel consumption if we have data
         if not lap_times_df.empty:
             fuel_consumption_rate = pit_optimizer.calculate_fuel_consumption_rate(lap_times_df)
         else:
-            fuel_consumption_rate = 3.5  # Default estimate
+            fuel_consumption_rate = 3.5
         
-        # Get pit recommendation
         recommendation = pit_optimizer.recommend_pit_strategy(
             current_lap=current_lap,
             total_laps=total_laps,
@@ -304,7 +271,6 @@ async def get_pit_recommendation(
             fuel_consumption_rate=fuel_consumption_rate
         )
         
-        # Convert windows to dicts
         windows_data = [
             {
                 "lap_start": w.lap_start,
@@ -335,12 +301,10 @@ async def get_pit_recommendation(
 
 @router.get("/strategy/compare-compounds")
 async def compare_tire_compounds(
-    race_length: int = Query(50, description="Total race laps"),
-    current_lap: int = Query(15, description="Current lap number")
+    race_length: int = Query(50),
+    current_lap: int = Query(15)
 ) -> Dict:
-    """
-    Compare different tire compound strategies for the remainder of the race.
-    """
+    """Compare different tire compound strategies."""
     try:
         strategies = tire_model.compare_tire_strategies(
             race_length=race_length,
@@ -356,4 +320,86 @@ async def compare_tire_compounds(
         }
     except Exception as e:
         logger.error(f"Error comparing compounds: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==============================================
+# DRIVER COMPARISON ENDPOINT
+# ==============================================
+
+@router.get("/compare-drivers")
+async def compare_drivers(
+    race_id: str = Query("R1"),
+    track: Optional[str] = Query(None),
+    driver_ids: str = Query(..., description="Comma-separated driver IDs (e.g., '1,2,3')")
+) -> Dict:
+    """Compare performance metrics for multiple drivers."""
+    try:
+        # Parse driver IDs
+        driver_list = [d.strip() for d in driver_ids.split(',')]
+        
+        if len(driver_list) < 2:
+            raise HTTPException(status_code=400, detail="Need at least 2 drivers to compare")
+        
+        if len(driver_list) > 5:
+            raise HTTPException(status_code=400, detail="Maximum 5 drivers for comparison")
+        
+        # Load lap times
+        lap_times_df = data_loader.load_lap_times(race_id, track)
+        
+        if lap_times_df.empty:
+            raise HTTPException(status_code=404, detail="No lap time data found")
+        
+        # Build comparison data
+        comparison = {
+            "race_id": race_id,
+            "track": track,
+            "drivers": []
+        }
+        
+        for driver_id in driver_list:
+            driver_laps = lap_times_df[lap_times_df['driver_id'] == driver_id]
+            
+            if driver_laps.empty:
+                continue
+            
+            # Calculate stats
+            best_lap = float(driver_laps['lap_time'].min())
+            avg_lap = float(driver_laps['lap_time'].mean())
+            worst_lap = float(driver_laps['lap_time'].max())
+            consistency = float(driver_laps['lap_time'].std())
+            total_laps = len(driver_laps)
+            
+            # Lap time progression
+            lap_progression = driver_laps.sort_values('lap')[['lap', 'lap_time']].to_dict('records')
+            
+            comparison["drivers"].append({
+                "driver_id": driver_id,
+                "best_lap": best_lap,
+                "average_lap": avg_lap,
+                "worst_lap": worst_lap,
+                "consistency_std": consistency,
+                "total_laps": total_laps,
+                "lap_progression": lap_progression
+            })
+        
+        # Add head-to-head analysis
+        if len(comparison["drivers"]) >= 2:
+            # Find overall fastest driver
+            fastest = min(comparison["drivers"], key=lambda d: d["best_lap"])
+            most_consistent = min(comparison["drivers"], key=lambda d: d["consistency_std"])
+            
+            comparison["analysis"] = {
+                "fastest_driver": fastest["driver_id"],
+                "fastest_lap": fastest["best_lap"],
+                "most_consistent_driver": most_consistent["driver_id"],
+                "best_consistency": most_consistent["consistency_std"]
+            }
+        
+        return comparison
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing drivers: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -12,6 +12,7 @@ import { fetchTracks } from './services/api';
 import LapTimeChart from './components/LapTimeChart';
 import TrackSelector from './components/TrackSelector';
 import PitStrategyPanel from './components/PitStrategyPanel';
+import DriverComparisonDashboard from './components/DriverComparisonDashboard';
 import './App.css';
 
 function TabPanel({ children, value, index }) {
@@ -39,7 +40,6 @@ function App() {
             const data = await fetchTracks();
             setTracks(data.tracks || []);
 
-            // Auto-select first track if available
             if (data.tracks && data.tracks.length > 0) {
                 setSelectedTrack(data.tracks[0]);
             }
@@ -51,10 +51,6 @@ function App() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleTabChange = (event, newValue) => {
-        setActiveTab(newValue);
     };
 
     return (
@@ -93,16 +89,20 @@ function App() {
                             <Paper sx={{ mb: 3 }}>
                                 <Tabs
                                     value={activeTab}
-                                    onChange={handleTabChange}
+                                    onChange={(e, newValue) => setActiveTab(newValue)}
                                     variant="fullWidth"
                                     sx={{ borderBottom: 1, borderColor: 'divider' }}
                                 >
                                     <Tab
-                                        label="📈 Lap Time Analysis"
+                                        label="📈 Lap Times"
                                         sx={{ fontSize: '1rem', fontWeight: 'bold' }}
                                     />
                                     <Tab
                                         label="🏁 Pit Strategy"
+                                        sx={{ fontSize: '1rem', fontWeight: 'bold' }}
+                                    />
+                                    <Tab
+                                        label="👥 Driver Comparison"
                                         sx={{ fontSize: '1rem', fontWeight: 'bold' }}
                                     />
                                 </Tabs>
@@ -121,6 +121,13 @@ function App() {
                                     track={selectedTrack || null}
                                 />
                             </TabPanel>
+
+                            <TabPanel value={activeTab} index={2}>
+                                <DriverComparisonDashboard
+                                    raceId="01"
+                                    track={selectedTrack || null}
+                                />
+                            </TabPanel>
                         </Box>
                     )}
 
@@ -129,21 +136,6 @@ function App() {
                             <Typography variant="h6">📂 No tracks found</Typography>
                             <Typography variant="body2" sx={{ mt: 1 }}>
                                 Add your track data folders to: <code>data/raw/</code>
-                            </Typography>
-                            <Typography variant="body2" sx={{ mt: 2 }}>
-                                Example structure:
-                            </Typography>
-                            <Typography variant="body2" component="pre" sx={{
-                                bgcolor: 'rgba(0,0,0,0.1)',
-                                p: 2,
-                                borderRadius: 1,
-                                mt: 1,
-                                fontFamily: 'monospace'
-                            }}>
-                                {`data/raw/
-├── barber-motorsports-park/
-├── circuit-of-the-americas/
-└── sonoma/`}
                             </Typography>
                         </Paper>
                     )}

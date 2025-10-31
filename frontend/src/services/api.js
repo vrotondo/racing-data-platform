@@ -31,10 +31,7 @@ export const fetchLapTimes = async (raceId, track = null, driverId = null) => {
     return apiCall(`/race/lap-times?${params}`);
 };
 
-// ==========================================
-// PIT STRATEGY API CALLS
-// ==========================================
-
+// NEW: Pit Strategy API Functions
 export const fetchTireStatus = async (params) => {
     const {
         raceId = 'R1',
@@ -98,4 +95,16 @@ export const fetchCompoundComparison = async (raceLength, currentLap) => {
     });
 
     return apiCall(`/race/strategy/compare-compounds?${queryParams}`);
+};
+
+// Driver Comparison API Function
+export const fetchDriverComparison = async (raceId, track, driverIds) => {
+    const queryParams = new URLSearchParams({
+        race_id: raceId,
+        driver_ids: driverIds.join(',')
+    });
+
+    if (track) queryParams.append('track', track);
+
+    return apiCall(`/race/compare-drivers?${queryParams}`);
 };
