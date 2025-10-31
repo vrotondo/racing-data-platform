@@ -143,8 +143,27 @@ class RacingDataLoader:
         else:
             search_path = settings.RAW_DATA_DIR
         
-        # Get ALL CSV files in the directory
-        all_files = list(search_path.glob("*.csv"))
+        logger.info(f"Searching for lap times in: {search_path}")
+        logger.info(f"Path exists: {search_path.exists()}")
+        logger.info(f"Is directory: {search_path.is_dir()}")
+        logger.info(f"Looking for race_id: {race_id}")
+        
+        # Try different ways to get files
+        try:
+            # Method 1: Using glob
+            all_files = list(search_path.glob("*.csv"))
+            logger.info(f"Glob found {len(all_files)} files")
+            
+            # Method 2: Using iterdir as fallback
+            if not all_files:
+                all_files = [f for f in search_path.iterdir() if f.suffix.lower() == '.csv']
+                logger.info(f"Iterdir found {len(all_files)} files")
+        except Exception as e:
+            logger.error(f"Error reading directory: {e}")
+            return pd.DataFrame()
+        
+        if all_files:
+            logger.info(f"First few files: {[f.name for f in all_files[:5]]}")
         
         if not all_files:
             logger.warning(f"No CSV files found in {search_path}")
@@ -154,16 +173,27 @@ class RacingDataLoader:
         lap_time_files = []
         for file in all_files:
             filename_lower = file.name.lower()
-            # Check if it contains lap time/lap_time/laptimes AND the race_id
-            if ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower):
-                if race_id.lower() in filename_lower or f"_{race_id}_" in file.name:
+            
+            # Check if it contains lap time/lap_time/laptimes
+            has_lap_time = ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower)
+            
+            if has_lap_time:
+                # Check race_id match
+                has_race_id = (race_id.lower() in filename_lower or f"_{race_id}_" in file.name)
+                
+                if has_race_id:
+                    logger.info(f"✓ MATCHED: {file.name}")
                     lap_time_files.append(file)
+        
+        logger.info(f"Found {len(lap_time_files)} lap time files matching race_id")
         
         # If no files match with race_id, just get first lap time file
         if not lap_time_files:
+            logger.info("No files matched race_id, trying any lap time file...")
             for file in all_files:
                 filename_lower = file.name.lower()
                 if ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower):
+                    logger.info(f"Using fallback file: {file.name}")
                     lap_time_files.append(file)
                     break
         
@@ -171,13 +201,14 @@ class RacingDataLoader:
             logger.warning(f"No lap time files found in {search_path}")
             return pd.DataFrame()
         
-        logger.info(f"Found lap time file: {lap_time_files[0]}")
+        logger.info(f"Loading lap time file: {lap_time_files[0]}")
         df = self.load_csv(lap_time_files[0])
         
         # Ensure lap time is numeric
         if 'lap_time' in df.columns:
             df['lap_time'] = pd.to_numeric(df['lap_time'], errors='coerce')
         
+        logger.info(f"Loaded {len(df)} rows")
         return df
     
     def load_lap_start_times(self, race_id: str = "R1", track: Optional[str] = None) -> pd.DataFrame:
