@@ -131,6 +131,7 @@ class RacingDataLoader:
     def load_lap_times(self, race_id: str = "R1", track: Optional[str] = None) -> pd.DataFrame:
         """
         Load lap time data for a specific race.
+        Calculate lap times from lap_start and lap_end files.
         
         Args:
             race_id: Race identifier
@@ -143,93 +144,79 @@ class RacingDataLoader:
         else:
             search_path = settings.RAW_DATA_DIR
         
-        logger.info(f"Searching for lap times in: {search_path}")
-        logger.info(f"Path exists: {search_path.exists()}")
-        logger.info(f"Is directory: {search_path.is_dir()}")
-        logger.info(f"Looking for race_id: {race_id}")
+        logger.info(f"Loading lap times from {search_path}")
         
-        # Try different ways to get files
+        # Find lap_start and lap_end files - try multiple patterns
+        all_files = list(search_path.glob("*.csv"))
+        
+        lap_start_files = [f for f in all_files if 'lap_start' in f.name.lower()]
+        lap_end_files = [f for f in all_files if 'lap_end' in f.name.lower()]
+        
+        if not lap_start_files or not lap_end_files:
+            logger.warning(f"Could not find lap_start or lap_end files in {search_path}")
+            logger.warning(f"Found files: {[f.name for f in all_files[:10]]}")
+            return pd.DataFrame()
+        
+        # Use first matching files
+        lap_start_file = lap_start_files[0]
+        lap_end_file = lap_end_files[0]
+        
+        logger.info(f"Found lap_start: {lap_start_file.name}")
+        logger.info(f"Found lap_end: {lap_end_file.name}")
+        
+        # Load both files
         try:
-            # Method 1: Using glob
-            all_files = list(search_path.glob("*.csv"))
-            logger.info(f"Glob found {len(all_files)} files")
+            lap_start = pd.read_csv(lap_start_file)
+            lap_end = pd.read_csv(lap_end_file)
             
-            # Method 2: Using iterdir as fallback
-            if not all_files:
-                all_files = [f for f in search_path.iterdir() if f.suffix.lower() == '.csv']
-                logger.info(f"Iterdir found {len(all_files)} files")
+            logger.info(f"Loaded {len(lap_start)} lap starts, {len(lap_end)} lap ends")
+            
+            # Convert timestamps to datetime
+            lap_start['timestamp'] = pd.to_datetime(lap_start['timestamp'])
+            lap_end['timestamp'] = pd.to_datetime(lap_end['timestamp'])
+            
+            # Determine which column to use for vehicle identification
+            if 'vehicle_number' in lap_start.columns:
+                vehicle_col = 'vehicle_number'
+            elif 'vehicle_id' in lap_start.columns:
+                vehicle_col = 'vehicle_id'
+            else:
+                logger.error("No vehicle identifier column found")
+                return pd.DataFrame()
+            
+            logger.info(f"Using vehicle column: {vehicle_col}")
+            
+            # Merge on lap and vehicle
+            merged = pd.merge(
+                lap_start[['lap', vehicle_col, 'timestamp']],
+                lap_end[['lap', vehicle_col, 'timestamp']],
+                on=['lap', vehicle_col],
+                suffixes=('_start', '_end')
+            )
+            
+            logger.info(f"Merged {len(merged)} records")
+            
+            # Calculate lap time in seconds
+            merged['lap_time'] = (merged['timestamp_end'] - merged['timestamp_start']).dt.total_seconds()
+            
+            # Rename vehicle column to driver_id
+            merged['driver_id'] = merged[vehicle_col].astype(str)
+            
+            # Keep only needed columns
+            result = merged[['lap', 'driver_id', 'lap_time']].copy()
+            
+            # Remove invalid lap times
+            result = result[result['lap_time'] > 0]
+            result = result[result['lap_time'] < 300]  # Remove times > 5 minutes
+            
+            logger.info(f"Calculated {len(result)} valid lap times")
+            logger.info(f"Sample data: {result.head(3).to_dict('records')}")
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Error reading directory: {e}")
+            logger.error(f"Error processing lap times: {e}", exc_info=True)
             return pd.DataFrame()
-        
-        if all_files:
-            logger.info(f"First few files: {[f.name for f in all_files[:5]]}")
-        
-        if not all_files:
-            logger.warning(f"No CSV files found in {search_path}")
-            return pd.DataFrame()
-        
-        # Filter for lap time files
-        lap_time_files = []
-        for file in all_files:
-            filename_lower = file.name.lower()
-            
-            # Check if it contains lap time/lap_time/laptimes
-            has_lap_time = ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower)
-            
-            if has_lap_time:
-                # Check race_id match
-                has_race_id = (race_id.lower() in filename_lower or f"_{race_id}_" in file.name)
-                
-                if has_race_id:
-                    logger.info(f"✓ MATCHED: {file.name}")
-                    lap_time_files.append(file)
-        
-        logger.info(f"Found {len(lap_time_files)} lap time files matching race_id")
-        
-        # If no files match with race_id, just get first lap time file
-        if not lap_time_files:
-            logger.info("No files matched race_id, trying any lap time file...")
-            for file in all_files:
-                filename_lower = file.name.lower()
-                if ('lap_time' in filename_lower or 'lap time' in filename_lower or 'laptimes' in filename_lower):
-                    logger.info(f"Using fallback file: {file.name}")
-                    lap_time_files.append(file)
-                    break
-        
-        if not lap_time_files:
-            logger.warning(f"No lap time files found in {search_path}")
-            return pd.DataFrame()
-        
-        logger.info(f"Loading lap time file: {lap_time_files[0]}")
-        df = self.load_csv(lap_time_files[0])
-        
-        # Ensure lap time is numeric
-        if 'lap_time' in df.columns:
-            df['lap_time'] = pd.to_numeric(df['lap_time'], errors='coerce')
-        
-        logger.info(f"Loaded {len(df)} rows")
-        return df
-    
-    def load_lap_start_times(self, race_id: str = "R1", track: Optional[str] = None) -> pd.DataFrame:
-        """Load lap start times"""
-        if track:
-            search_path = settings.RAW_DATA_DIR / track
-            file_pattern = f"*lap_start_time*{race_id}*.csv"
-        else:
-            search_path = settings.RAW_DATA_DIR
-            file_pattern = f"**/*lap_start_time*{race_id}*.csv"
-        
-        files = list(search_path.glob(file_pattern))
-        
-        if not files:
-            return pd.DataFrame()
-        
-        df = self.load_csv(files[0])
-        if 'start_time' in df.columns:
-            df['start_time'] = pd.to_datetime(df['start_time'], errors='coerce')
-        
-        return df
     
     def load_lap_end_times(self, race_id: str = "R1", track: Optional[str] = None) -> pd.DataFrame:
         """Load lap end times"""
