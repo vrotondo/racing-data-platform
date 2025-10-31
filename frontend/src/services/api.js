@@ -30,3 +30,72 @@ export const fetchLapTimes = async (raceId, track = null, driverId = null) => {
     if (driverId) params.append('driver_id', driverId);
     return apiCall(`/race/lap-times?${params}`);
 };
+
+// ==========================================
+// PIT STRATEGY API CALLS
+// ==========================================
+
+export const fetchTireStatus = async (params) => {
+    const {
+        raceId = 'R1',
+        track = null,
+        driverId = null,
+        compound = 'medium',
+        currentStintLaps = 10,
+        trackTemp = null
+    } = params;
+
+    const queryParams = new URLSearchParams({
+        race_id: raceId,
+        compound: compound,
+        current_stint_laps: currentStintLaps
+    });
+
+    if (track) queryParams.append('track', track);
+    if (driverId) queryParams.append('driver_id', driverId);
+    if (trackTemp !== null) queryParams.append('track_temp', trackTemp);
+
+    return apiCall(`/race/strategy/tire-status?${queryParams}`);
+};
+
+export const fetchPitRecommendation = async (params) => {
+    const {
+        raceId = 'R1',
+        track = null,
+        currentLap = 15,
+        totalLaps = 50,
+        currentPosition = 5,
+        fuelRemaining = 45.0,
+        tireCompound = 'medium',
+        tireStintLaps = 15,
+        gapAhead = 2.5,
+        gapBehind = 3.2,
+        isCaution = false
+    } = params;
+
+    const queryParams = new URLSearchParams({
+        race_id: raceId,
+        current_lap: currentLap,
+        total_laps: totalLaps,
+        current_position: currentPosition,
+        fuel_remaining: fuelRemaining,
+        tire_compound: tireCompound,
+        tire_stint_laps: tireStintLaps,
+        gap_ahead: gapAhead,
+        gap_behind: gapBehind,
+        is_caution: isCaution
+    });
+
+    if (track) queryParams.append('track', track);
+
+    return apiCall(`/race/strategy/pit-recommendation?${queryParams}`);
+};
+
+export const fetchCompoundComparison = async (raceLength, currentLap) => {
+    const queryParams = new URLSearchParams({
+        race_length: raceLength,
+        current_lap: currentLap
+    });
+
+    return apiCall(`/race/strategy/compare-compounds?${queryParams}`);
+};
