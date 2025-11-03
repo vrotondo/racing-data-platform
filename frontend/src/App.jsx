@@ -6,13 +6,18 @@ import {
     CircularProgress,
     Paper,
     Tabs,
-    Tab
+    Tab,
+    Grid
 } from '@mui/material';
 import { fetchTracks } from './services/api';
 import LapTimeChart from './components/LapTimeChart';
 import TrackSelector from './components/TrackSelector';
+import RaceSelector from './components/RaceSelector';
 import PitStrategyPanel from './components/PitStrategyPanel';
 import DriverComparisonDashboard from './components/DriverComparisonDashboard';
+import RaceResultsTable from './components/RaceResultsTable';
+import BestLapsLeaderboard from './components/BestLapsLeaderboard';
+import TelemetryViewer from './components/TelemetryViewer';
 import './App.css';
 
 function TabPanel({ children, value, index }) {
@@ -26,6 +31,8 @@ function TabPanel({ children, value, index }) {
 function App() {
     const [tracks, setTracks] = useState([]);
     const [selectedTrack, setSelectedTrack] = useState('');
+    const [selectedRace, setSelectedRace] = useState('01');
+    const [availableRaces, setAvailableRaces] = useState(['01', '02', '03']);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState(0);
@@ -80,11 +87,22 @@ function App() {
 
                     {!loading && !error && tracks.length > 0 && (
                         <Box>
-                            <TrackSelector
-                                tracks={tracks}
-                                selectedTrack={selectedTrack}
-                                onTrackChange={setSelectedTrack}
-                            />
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} md={6}>
+                                    <TrackSelector
+                                        tracks={tracks}
+                                        selectedTrack={selectedTrack}
+                                        onTrackChange={setSelectedTrack}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <RaceSelector
+                                        races={availableRaces}
+                                        selectedRace={selectedRace}
+                                        onRaceChange={setSelectedRace}
+                                    />
+                                </Grid>
+                            </Grid>
 
                             <Paper sx={{ mb: 3 }}>
                                 <Tabs
@@ -105,26 +123,59 @@ function App() {
                                         label="👥 Driver Comparison"
                                         sx={{ fontSize: '1rem', fontWeight: 'bold' }}
                                     />
+                                    <Tab
+                                        label="🏆 Race Results"
+                                        sx={{ fontSize: '1rem', fontWeight: 'bold' }}
+                                    />
+                                    <Tab
+                                        label="⚡ Best Laps"
+                                        sx={{ fontSize: '1rem', fontWeight: 'bold' }}
+                                    />
+                                    <Tab
+                                        label="🎛️ Telemetry"
+                                        sx={{ fontSize: '1rem', fontWeight: 'bold' }}
+                                    />
                                 </Tabs>
                             </Paper>
 
                             <TabPanel value={activeTab} index={0}>
                                 <LapTimeChart
-                                    raceId="01"
+                                    raceId={selectedRace}
                                     track={selectedTrack || null}
                                 />
                             </TabPanel>
 
                             <TabPanel value={activeTab} index={1}>
                                 <PitStrategyPanel
-                                    raceId="01"
+                                    raceId={selectedRace}
                                     track={selectedTrack || null}
                                 />
                             </TabPanel>
 
                             <TabPanel value={activeTab} index={2}>
                                 <DriverComparisonDashboard
-                                    raceId="01"
+                                    raceId={selectedRace}
+                                    track={selectedTrack || null}
+                                />
+                            </TabPanel>
+
+                            <TabPanel value={activeTab} index={3}>
+                                <RaceResultsTable
+                                    raceId={selectedRace}
+                                    track={selectedTrack || null}
+                                />
+                            </TabPanel>
+
+                            <TabPanel value={activeTab} index={4}>
+                                <BestLapsLeaderboard
+                                    raceId={selectedRace}
+                                    track={selectedTrack || null}
+                                />
+                            </TabPanel>
+
+                            <TabPanel value={activeTab} index={5}>
+                                <TelemetryViewer
+                                    raceId={selectedRace}
                                     track={selectedTrack || null}
                                 />
                             </TabPanel>

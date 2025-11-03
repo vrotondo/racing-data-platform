@@ -108,3 +108,13 @@ export const fetchDriverComparison = async (raceId, track, driverIds) => {
 
     return apiCall(`/race/compare-drivers?${queryParams}`);
 };
+
+// Telemetry API Function
+export const fetchTelemetry = async (raceId, track = null, driverId = null, lap = null) => {
+    const params = new URLSearchParams({ race_id: raceId });
+    if (track) params.append('track', track);
+    if (driverId) params.append('driver_id', driverId);
+    if (lap) params.append('lap', lap);
+
+    return apiCall(`/race/telemetry?${params}`);
+};

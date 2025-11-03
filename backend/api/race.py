@@ -52,18 +52,109 @@ async def get_race_results(
         if results_df.empty:
             raise HTTPException(status_code=404, detail="No results found")
         
+        # Ensure we have the right columns
+        # Common column names in race results files
+        results_records = results_df.to_dict('records')
+        
+        # Normalize column names for frontend
+        for record in results_records:
+            # Add position if missing
+            if 'position' not in record and 'Pos' in record:
+                record['position'] = record['Pos']
+            elif 'position' not in record and 'Position' in record:
+                record['position'] = record['Position']
+                
+            # Add vehicle_number if missing
+            if 'vehicle_number' not in record and 'Vehicle Number' in record:
+                record['vehicle_number'] = record['Vehicle Number']
+            elif 'vehicle_number' not in record and 'Car' in record:
+                record['vehicle_number'] = record['Car']
+                
+            # Add best_lap_time if missing
+            if 'best_lap_time' not in record and 'Best Lap' in record:
+                record['best_lap_time'] = record['Best Lap']
+            elif 'best_lap_time' not in record and 'Fastest Lap' in record:
+                record['best_lap_time'] = record['Fastest Lap']
+                
+            # Add status if missing
+            if 'status' not in record:
+                record['status'] = 'Finished'
+        
         return {
             "race_id": race_id,
             "track": track,
             "total_drivers": len(results_df),
-            "results": results_df.to_dict('records')
+            "results": results_records
         }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error loading race results: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/results-from-laps")
+async def get_results_from_lap_times(
+    race_id: str = Query("R1"),
+    track: Optional[str] = Query(None)
+) -> Dict:
+    """Generate race results from lap time data if results file doesn't exist."""
+    try:
+        lap_times_df = data_loader.load_lap_times(race_id, track)
+        
+        if lap_times_df.empty:
+            raise HTTPException(status_code=404, detail="No data found")
+        
+        # Calculate results from lap times
+        results = []
+        
+        # Group by driver
+        for driver_id in lap_times_df['driver_id'].unique():
+            driver_laps = lap_times_df[lap_times_df['driver_id'] == driver_id]
+            
+            total_laps = len(driver_laps)
+            total_time = driver_laps['lap_time'].sum()
+            best_lap = driver_laps['lap_time'].min()
+            
+            results.append({
+                'vehicle_number': driver_id,
+                'laps_completed': total_laps,
+                'total_time': float(total_time),
+                'best_lap_time': float(best_lap),
+                'status': 'Finished'
+            })
+        
+        # Sort by total laps (descending) then by total time (ascending)
+        results.sort(key=lambda x: (-x['laps_completed'], x['total_time']))
+        
+        # Add positions and gaps
+        for idx, result in enumerate(results):
+            result['position'] = idx + 1
+            if idx == 0:
+                result['gap'] = 0
+            else:
+                result['gap'] = float(result['total_time'] - results[0]['total_time'])
+        
+        return {
+            "race_id": race_id,
+            "track": track,
+            "total_drivers": len(results),
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error generating results: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/results/available")
+async def check_results_available(
+    race_id: Optional[str] = Query(None),
+    track: Optional[str] = Query(None)
+) -> Dict:
+    """Check if results file exists."""
+    try:
+        results_df = data_loader.load_race_results(race_id, track)
+        return {"available": not results_df.empty}
+    except:
+        return {"available": False}
 
 @router.get("/lap-times")
 async def get_lap_times(
@@ -402,4 +493,46 @@ async def compare_drivers(
         raise
     except Exception as e:
         logger.error(f"Error comparing drivers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/telemetry")
+async def get_telemetry_data(
+    race_id: str = Query("R1"),
+    track: Optional[str] = Query(None),
+    driver_id: Optional[str] = Query(None),
+    lap: Optional[int] = Query(None)
+) -> Dict:
+    """Get telemetry data (speed, throttle, brake, gear) for analysis."""
+    try:
+        telemetry_df = data_loader.load_telemetry(race_id, track)
+        
+        if telemetry_df.empty:
+            raise HTTPException(status_code=404, detail="No telemetry data found")
+        
+        # Filter by driver if specified
+        if driver_id:
+            telemetry_df = telemetry_df[telemetry_df['driver_id'] == driver_id]
+        
+        # Filter by lap if specified
+        if lap:
+            telemetry_df = telemetry_df[telemetry_df['lap'] == lap]
+        
+        # Get available laps and drivers
+        available_laps = sorted(telemetry_df['lap'].unique().tolist()) if 'lap' in telemetry_df.columns else []
+        available_drivers = sorted(telemetry_df['driver_id'].unique().tolist()) if 'driver_id' in telemetry_df.columns else []
+        
+        return {
+            "race_id": race_id,
+            "track": track,
+            "driver_id": driver_id,
+            "lap": lap,
+            "total_samples": len(telemetry_df),
+            "available_laps": available_laps,
+            "available_drivers": available_drivers,
+            "telemetry": telemetry_df.to_dict('records')
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error loading telemetry: {e}")
         raise HTTPException(status_code=500, detail=str(e))
