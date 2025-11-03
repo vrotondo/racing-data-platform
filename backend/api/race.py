@@ -510,16 +510,22 @@ async def get_telemetry_data(
             raise HTTPException(status_code=404, detail="No telemetry data found")
         
         # Filter by driver if specified
-        if driver_id:
+        if driver_id and 'driver_id' in telemetry_df.columns:
             telemetry_df = telemetry_df[telemetry_df['driver_id'] == driver_id]
         
         # Filter by lap if specified
-        if lap:
+        if lap and 'lap' in telemetry_df.columns:
             telemetry_df = telemetry_df[telemetry_df['lap'] == lap]
         
         # Get available laps and drivers
-        available_laps = sorted(telemetry_df['lap'].unique().tolist()) if 'lap' in telemetry_df.columns else []
-        available_drivers = sorted(telemetry_df['driver_id'].unique().tolist()) if 'driver_id' in telemetry_df.columns else []
+        available_laps = []
+        available_drivers = []
+        
+        if 'lap' in telemetry_df.columns:
+            available_laps = sorted(telemetry_df['lap'].unique().tolist())
+        
+        if 'driver_id' in telemetry_df.columns:
+            available_drivers = sorted(telemetry_df['driver_id'].unique().tolist())
         
         return {
             "race_id": race_id,
@@ -534,5 +540,5 @@ async def get_telemetry_data(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error loading telemetry: {e}")
+        logger.error(f"Error loading telemetry: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
