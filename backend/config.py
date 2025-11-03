@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     
     # API
     API_V1_PREFIX: str = "/api"
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
+    CORS_ORIGINS: list = [
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "https://racing-platform.onrender.com",
+        "*"
+    ]
     
     # Paths
     BASE_DIR: Path = Path(__file__).parent.parent

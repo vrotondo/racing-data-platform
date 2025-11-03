@@ -1,0 +1,60 @@
+services:
+  # Backend Service
+  - type: web
+    name: racing-backend
+    env: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && python main.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 8000
+
+  # Frontend Service  
+  - type: web
+    name: racing-frontend
+    env: static
+    region: oregon
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/build
+```
+
+---
+
+## 🌐 STEP 2: Deploy Backend First
+
+### A. Go to Render.com
+1. Sign up/login at https://render.com
+2. Click **"New +"** → **"Web Service"**
+
+### B. Connect your GitHub repo
+1. Connect your GitHub account if not already connected
+2. Select your `racing-data-platform` repository
+3. Click **"Connect"**
+
+### C. Configure the backend service
+Fill in these settings:
+
+- **Name:** `racing-backend` (or whatever you want)
+- **Region:** Oregon (US West) or closest to you
+- **Branch:** `main` (or your default branch)
+- **Root Directory:** Leave empty
+- **Environment:** `Python 3`
+- **Build Command:** 
+```
+  pip install -r requirements.txt
+```
+- **Start Command:** 
+```
+  cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+### D. Set environment variables
+
+Click **"Advanced"** → **"Add Environment Variable"** and add:
+```
+PORT = 10000
+PYTHON_VERSION = 3.11.0
+DEBUG = False
