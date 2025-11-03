@@ -55,8 +55,11 @@ function TelemetryViewer({ raceId = "01", track = null }) {
 
             setError(null);
         } catch (err) {
+            // 404 is expected if no telemetry data exists - handle gracefully
+            console.log('No telemetry data available for this race (this is normal)');
             setError('No telemetry data available for this race');
-            console.error(err);
+            setAvailableDrivers([]);
+            setAvailableLaps([]);
         } finally {
             setLoading(false);
         }
